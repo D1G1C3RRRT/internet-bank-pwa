@@ -1,6 +1,3 @@
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { getBankAccounts, getTransactions } from '@/app/actions/banking'
 import { DashboardHeader } from '@/components/dashboard-header'
 import { AccountCard } from '@/components/account-card'
@@ -13,9 +10,6 @@ export const metadata = {
 }
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
-
   const accounts = await getBankAccounts()
   const recentTransactions = await getTransactions(10)
   const totalBalance = accounts.reduce(
@@ -25,7 +19,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={session.user} />
+      <DashboardHeader />
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Total Balance Section */}
         <div className="mb-8">
