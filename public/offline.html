@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - Internet Bank</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #fff;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 500px;
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 30px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    p {
+      font-size: 16px;
+      color: #cbd5e1;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .button {
+      display: inline-block;
+      background: #0ea5e9;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background 0.3s;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .button:hover {
+      background: #0284c7;
+    }
+
+    .status {
+      margin-top: 40px;
+      padding: 15px;
+      background: rgba(107, 114, 128, 0.1);
+      border: 1px solid rgba(107, 114, 128, 0.3);
+      border-radius: 6px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .status.online {
+      background: rgba(34, 197, 94, 0.1);
+      border-color: rgba(34, 197, 94, 0.3);
+      color: #86efac;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>You&apos;re Offline</h1>
+    <p>
+      It looks like you&apos;ve lost your internet connection. Some features may not be available,
+      but you can still view your cached data.
+    </p>
+    <button class="button" onclick="location.reload()">Try Again</button>
+    <div class="status" id="status">
+      <strong>Status:</strong> Offline
+      <div id="details" style="margin-top: 8px; font-size: 12px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Check connection status
+    function updateStatus() {
+      const statusEl = document.getElementById('status')
+      const detailsEl = document.getElementById('details')
+
+      if (navigator.onLine) {
+        statusEl.classList.add('online')
+        statusEl.innerHTML = '<strong>Status:</strong> Online<div id="details" style="margin-top: 8px; font-size: 12px;">You can now reload the page to sync data</div>'
+      } else {
+        statusEl.classList.remove('online')
+        detailsEl.textContent = 'Trying to reconnect...'
+      }
+    }
+
+    window.addEventListener('online', updateStatus)
+    window.addEventListener('offline', updateStatus)
+
+    // Check periodically
+    setInterval(updateStatus, 2000)
+    updateStatus()
+  </script>
+</body>
+</html>
