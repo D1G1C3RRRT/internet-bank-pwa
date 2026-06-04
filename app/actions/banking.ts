@@ -1,26 +1,24 @@
 'use server'
 
-import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { bankAccount, transaction } from '@/lib/db/schema'
 import { and, eq, desc } from 'drizzle-orm'
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { v4 as uuidv4 } from 'uuid'
 
+// Demo user ID for public access (no authentication required)
+const DEMO_USER_ID = 'demo-user-001'
+
 /**
- * Resolve the current user id from the Better Auth session.
- * Every server action that touches user data MUST go through this helper.
+ * Get the current user ID (using demo user for public access)
  */
-async function getUserId() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) throw new Error('Unauthorized')
-  return session.user.id
+function getUserId() {
+  return DEMO_USER_ID
 }
 
 // Bank Account Actions
 export async function getBankAccounts() {
-  const userId = await getUserId()
+  const userId = getUserId()
   return db
     .select()
     .from(bankAccount)
@@ -32,7 +30,7 @@ export async function createBankAccount(
   accountType: 'checking' | 'savings',
   currency: string = 'USD'
 ) {
-  const userId = await getUserId()
+  const userId = getUserId()
   const accountNumber = `ACC-${uuidv4().slice(0, 12).toUpperCase()}`
 
   const result = await db
@@ -52,7 +50,7 @@ export async function createBankAccount(
 }
 
 export async function getAccountBalance(accountId: string) {
-  const userId = await getUserId()
+  const userId = getUserId()
   const account = await db
     .select()
     .from(bankAccount)
@@ -69,7 +67,7 @@ export async function getAccountBalance(accountId: string) {
 
 // Transaction Actions
 export async function getTransactions(limit: number = 20) {
-  const userId = await getUserId()
+  const userId = getUserId()
   return db
     .select()
     .from(transaction)
@@ -82,7 +80,7 @@ export async function getAccountTransactions(
   accountId: string,
   limit: number = 20
 ) {
-  const userId = await getUserId()
+  const userId = getUserId()
   return db
     .select()
     .from(transaction)
@@ -103,7 +101,7 @@ export async function createTransaction(
   type: 'transfer' | 'deposit' | 'withdrawal',
   description?: string
 ) {
-  const userId = await getUserId()
+  const userId = getUserId()
 
   // Verify the fromAccount belongs to the user
   const fromAccount = await db
@@ -159,7 +157,7 @@ export async function depositFunds(
   amount: string,
   description?: string
 ) {
-  const userId = await getUserId()
+  const userId = getUserId()
 
   // Verify account belongs to user
   const account = await db

@@ -1,6 +1,4 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
 import { getAccountTransactions, getBankAccounts } from '@/app/actions/banking'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -20,8 +18,6 @@ interface PageProps {
 
 export default async function AccountDetailPage({ params }: PageProps) {
   const { id } = await params
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
 
   const accounts = await getBankAccounts()
   const account = accounts.find((acc) => acc.id === id)
