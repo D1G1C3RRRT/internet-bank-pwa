@@ -1,40 +1,33 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+import { WebVitals } from '@/components/web-vitals'
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#000000',
+  themeColor: '#670884',
 }
 
 export const metadata: Metadata = {
-  title: 'Internet Bank - Secure Online Banking',
+  title: 'bunq - Bank of The Free',
   description: 'Your secure and simple online banking solution with seamless transfers and account management',
   generator: 'v0.app',
-  applicationName: 'Internet Bank',
+  applicationName: 'bunq',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Internet Bank',
+    title: 'bunq',
   },
   formatDetection: {
     telephone: false,
   },
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon-192x192.png',
-    apple: '/icon-192x192.png',
-    shortcut: '/icon-192x192.png',
+    icon: '/favicon-32x32.png',
+    apple: '/apple-touch-icon.png',
+    shortcut: '/favicon.ico',
   },
 }
 
@@ -44,13 +37,26 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="sk" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
       </head>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased bg-white dark:bg-black dark:text-white transition-colors duration-300">
+        <WebVitals />
         {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
         <script suppressHydrationWarning>
           {`
             if ('serviceWorker' in navigator) {

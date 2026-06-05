@@ -6,10 +6,18 @@ __v0_jsx-dev-runtime.ts
 .v0-trash/
 .vercel/
 
-# Environment variables
+# Environment variables — NEVER commit secrets
 .env*.local
+.env.local
 
 # Common ignores
 node_modules
 .next/
 .DS_Store
+
+# Build artifacts
+tsconfig.tsbuildinfo
+*.log
+
+# Test artifacts
+coverage/

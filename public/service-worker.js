@@ -94,3 +94,79 @@ self.addEventListener('notificationclick', (event) => {
     })
   )
 })
+
+// --- Offline First Sync Engine ---
+importScripts('https://cdn.jsdelivr.net/npm/idb@8/build/umd.js')
+importScripts('https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js')
+
+async function processSyncQueue() {
+  const db = await idb.openDB('internet-bank-offline-db', 1)
+  if (!db.objectStoreNames.contains('sync_queue')) return
+  
+  const tx = db.transaction('sync_queue', 'readwrite')
+  const store = tx.objectStore('sync_queue')
+  const operations = await store.getAll()
+  
+  if (operations.length === 0) return
+  
+  try {
+    // Compress payload to save bandwidth
+    const payloadStr = JSON.stringify(operations)
+    const compressed = LZString.compressToEncodedURIComponent(payloadStr)
+    
+    // In production, this would point to the actual domain or use relative paths
+    // We send it to our new API route
+    const response = await fetch('/api/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `data=${compressed}`
+    })
+    
+    if (response.ok) {
+      // Clear synced items
+      const deleteTx = db.transaction('sync_queue', 'readwrite')
+      const delStore = deleteTx.objectStore('sync_queue')
+      for (const op of operations) {
+        await delStore.delete(op.id)
+      }
+      
+      // Notify user if background sync
+      self.registration.showNotification('Sync Complete', {
+        body: `Successfully synced ${operations.length} offline actions.`,
+        icon: '/icon-192x192.png'
+      })
+      
+      // Notify clients to refresh their state
+      const clientsList = await self.clients.matchAll()
+      clientsList.forEach(client => client.postMessage({ type: 'SYNC_COMPLETE' }))
+    } else {
+      throw new Error('Server rejected sync payload')
+    }
+  } catch (err) {
+    console.error('[SW] Sync failed, will retry later:', err)
+    // Increment retry counts
+    const updateTx = db.transaction('sync_queue', 'readwrite')
+    const updateStore = updateTx.objectStore('sync_queue')
+    for (const op of operations) {
+      op.retryCount = (op.retryCount || 0) + 1
+      if (op.retryCount > 5) op.status = 'failed'
+      await updateStore.put(op)
+    }
+    throw err // Throwing tells the browser to schedule another sync
+  }
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-operations') {
+    event.waitUntil(processSyncQueue())
+  }
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SYNC_NOW') {
+    processSyncQueue()
+  }
+})
+
