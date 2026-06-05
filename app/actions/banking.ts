@@ -1,36 +1,82 @@
 'use server'
 
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { bankAccount, transaction } from '@/lib/db/schema'
 import { and, eq, desc } from 'drizzle-orm'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { v4 as uuidv4 } from 'uuid'
-
-// Demo user ID for public access (no authentication required)
-const DEMO_USER_ID = 'demo-user-001'
+import { redirect } from 'next/navigation'
+const uuidv4 = () => {
+  return typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID() 
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+}
 
 /**
- * Get the current user ID (using demo user for public access)
+ * Resolve the current user id from the Better Auth session.
+ * Every server action that touches user data MUST go through this helper.
  */
-function getUserId() {
-  return DEMO_USER_ID
+async function getUserId() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+  return session.user.id
 }
 
 // Bank Account Actions
 export async function getBankAccounts() {
-  const userId = getUserId()
-  return db
+  const userId = await getUserId()
+  let accounts = await db
     .select()
     .from(bankAccount)
     .where(eq(bankAccount.userId, userId))
-    .orderBy(desc(bankAccount.createdAt))
+    .orderBy(bankAccount.createdAt)
+
+  if (accounts.length === 0) {
+    // Seed default accounts to match the screenshot
+    const defaultAccounts = [
+      { accountType: 'checking', currency: 'EUR', balance: '0.00' }, // NL € účet
+      { accountType: 'savings', currency: 'EUR', balance: '0.00' },  // sporiaci účet
+      { accountType: 'checking', currency: 'EUR', balance: '0.00' }, // Španielsky účet
+      { accountType: 'checking', currency: 'EUR', balance: '0.00' }, // Francúzsky účet
+      { accountType: 'checking', currency: 'EUR', balance: '0.04' }, // Nemecký účet
+      { accountType: 'savings', currency: 'EUR', balance: '0.00' },  // Tringelty /// --->
+      { accountType: 'checking', currency: 'EUR', balance: '0.00' }, // Spoločný účet
+    ]
+
+    for (const acc of defaultAccounts) {
+      const accountNumber = `ACC-${uuidv4().slice(0, 12).toUpperCase()}`
+      await db.insert(bankAccount).values({
+        id: uuidv4(),
+        userId,
+        accountNumber,
+        accountType: acc.accountType,
+        currency: acc.currency,
+        balance: acc.balance,
+        isActive: true,
+      })
+    }
+
+    // Fetch again
+    accounts = await db
+      .select()
+      .from(bankAccount)
+      .where(eq(bankAccount.userId, userId))
+      .orderBy(bankAccount.createdAt)
+  }
+
+  return accounts
 }
 
 export async function createBankAccount(
   accountType: 'checking' | 'savings',
   currency: string = 'USD'
 ) {
-  const userId = getUserId()
+  const userId = await getUserId()
   const accountNumber = `ACC-${uuidv4().slice(0, 12).toUpperCase()}`
 
   const result = await db
@@ -50,7 +96,7 @@ export async function createBankAccount(
 }
 
 export async function getAccountBalance(accountId: string) {
-  const userId = getUserId()
+  const userId = await getUserId()
   const account = await db
     .select()
     .from(bankAccount)
@@ -67,23 +113,51 @@ export async function getAccountBalance(accountId: string) {
 
 // Transaction Actions
 export async function getTransactions(limit: number = 20) {
-  const userId = getUserId()
-  return db
-    .select()
+  const userId = await getUserId()
+  const results = await db
+    .select({
+      id: transaction.id,
+      userId: transaction.userId,
+      fromAccountId: transaction.fromAccountId,
+      toAccountId: transaction.toAccountId,
+      amount: transaction.amount,
+      type: transaction.type,
+      description: transaction.description,
+      status: transaction.status,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+      currency: bankAccount.currency,
+    })
     .from(transaction)
+    .leftJoin(bankAccount, eq(transaction.fromAccountId, bankAccount.id))
     .where(eq(transaction.userId, userId))
     .orderBy(desc(transaction.createdAt))
     .limit(limit)
+
+  return results
 }
 
 export async function getAccountTransactions(
   accountId: string,
   limit: number = 20
 ) {
-  const userId = getUserId()
-  return db
-    .select()
+  const userId = await getUserId()
+  const results = await db
+    .select({
+      id: transaction.id,
+      userId: transaction.userId,
+      fromAccountId: transaction.fromAccountId,
+      toAccountId: transaction.toAccountId,
+      amount: transaction.amount,
+      type: transaction.type,
+      description: transaction.description,
+      status: transaction.status,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+      currency: bankAccount.currency,
+    })
     .from(transaction)
+    .leftJoin(bankAccount, eq(transaction.fromAccountId, bankAccount.id))
     .where(
       and(
         eq(transaction.userId, userId),
@@ -92,6 +166,8 @@ export async function getAccountTransactions(
     )
     .orderBy(desc(transaction.createdAt))
     .limit(limit)
+
+  return results
 }
 
 export async function createTransaction(
@@ -101,7 +177,7 @@ export async function createTransaction(
   type: 'transfer' | 'deposit' | 'withdrawal',
   description?: string
 ) {
-  const userId = getUserId()
+  const userId = await getUserId()
 
   // Verify the fromAccount belongs to the user
   const fromAccount = await db
@@ -157,7 +233,7 @@ export async function depositFunds(
   amount: string,
   description?: string
 ) {
-  const userId = getUserId()
+  const userId = await getUserId()
 
   // Verify account belongs to user
   const account = await db
